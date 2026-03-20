@@ -31,13 +31,12 @@ df['DaySinceLastOrder'].fillna(df['DaySinceLastOrder'].median(), inplace=True)
 
 
 #分析用户登录设备（饼图）
-#分析流失用户的首选登录设备
 df_churn1 = df.loc[df['Churn'] == 1]  #获取流失的用户
 #按照登录设备分组后计算数据个数
 df_churn1_PreferredLoginDevice = df_churn1.groupby(['PreferredLoginDevice'])['CustomerID'].count().reset_index().rename(columns={'CustomerID': 'count'})
 label_churn1_PreferredLoginDevice=df_churn1_PreferredLoginDevice['PreferredLoginDevice']  #提取标签
-plt.rcParams['font.sans-serif'] = ['SimHei']  #用来正常显示标签
-plt.rcParams['axes.unicode_minus'] = False  #用来正常显示负号
+plt.rcParams['font.sans-serif'] = ['SimHei']
+plt.rcParams['axes.unicode_minus'] = False
 plt.pie(df_churn1_PreferredLoginDevice['count'],
         #传入标签
  labels=label_churn1_PreferredLoginDevice.values,
@@ -87,7 +86,7 @@ y2 = [
 # 为方便后续引用，将数据放入 data
 data = [y1, y2]
 
-# 提取标签（注意 x 轴顺序）
+# 提取标签
 label_churn0_PreferredLoginDevice = ['MobilePhone', 'Phone', 'Pad']
 
 # 获取 x 轴标签位置
@@ -594,8 +593,7 @@ print("\n标签分布：")
 print(y.value_counts())
 
 # =========================
-# 第23页：逻辑回归原理介绍
-# 这一页主要是讲解性内容，代码上对应的是建模准备
+# 逻辑回归
 # =========================
 
 # 标准化特征
@@ -636,7 +634,7 @@ y_pred = lr_model.predict(X_test)
 y_prob = lr_model.predict_proba(X_test)[:, 1]
 
 # =========================
-# 第25页：结果评估与模型表现
+# 结果评估与模型表现
 # =========================
 
 # 计算评价指标
@@ -655,7 +653,7 @@ print("\n分类报告：")
 print(classification_report(y_test, y_pred, digits=4, zero_division=0))
 
 # =========================
-# 第26页：混淆矩阵
+# 混淆矩阵
 # =========================
 
 cm = confusion_matrix(y_test, y_pred)
@@ -676,7 +674,7 @@ plt.title('逻辑回归模型 - 混淆矩阵')
 plt.show()
 
 # =========================
-# 第26页：模型回归系数
+# 模型回归系数
 # =========================
 
 coef_df = pd.DataFrame({
@@ -701,7 +699,7 @@ for i, v in enumerate(coef_df['回归系数']):
 plt.show()
 
 # =========================
-# 补充：输出每个用户的流失概率（可用于PPT解读）
+# 输出每个用户的流失概率
 # =========================
 
 pred_result = pd.DataFrame({
