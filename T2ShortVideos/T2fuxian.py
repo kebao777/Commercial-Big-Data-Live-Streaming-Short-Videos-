@@ -18,7 +18,7 @@ plt.rcParams["axes.unicode_minus"] = False
 # =========================
 # 1. 读取数据与基础预览
 # =========================
-file_path = "短视频营销数据.xlsx"   # 按你的文件名修改
+file_path = "短视频营销数据.xlsx"
 sheet_name = 0                      # 如果有指定 sheet，可改成具体名称
 
 df = pd.read_excel(file_path, sheet_name=sheet_name)
@@ -35,20 +35,14 @@ print(df.isnull().sum())
 
 # =========================
 # 2. 缺失值处理
-# PPT中提到 video_title 存在缺失，可基于 product_title 手动补
+# video_title 存在缺失，可基于 product_title 补
 # =========================
 if "video_title" in df.columns and "product_title" in df.columns:
     df["video_title"] = df["video_title"].fillna("")
 
-    # 先做一个保底填充：如果 video_title 为空，就用 product_title 的简化文本代替
+    # 如果 video_title 为空，就用 product_title 的简化文本代替
     empty_mask = df["video_title"].str.strip() == ""
     df.loc[empty_mask, "video_title"] = df.loc[empty_mask, "product_title"].astype(str)
-
-    # 若你想完全按书上例子手动填，也可以保留下面这段：
-    df.loc[df["product_title"].astype(str).str.contains("收纳筐", na=False), "video_title"] = \
-        df.loc[df["product_title"].astype(str).str.contains("收纳筐", na=False), "video_title"].replace("", "收纳筐")
-    df.loc[df["product_title"].astype(str).str.contains("玉米", na=False), "video_title"] = \
-        df.loc[df["product_title"].astype(str).str.contains("玉米", na=False), "video_title"].replace("", "玉米")
 
 print("\n处理后的缺失值统计：")
 print(df.isnull().sum())
@@ -100,7 +94,7 @@ df['price_group'] = df['price'].apply(price_group)  #对商品价格进行等级
 price_group_count = df['price_group'].value_counts(normalize=True)  #统计每个类别占比
 plt.pie(price_group_count,
         labels=price_group_count.index,  #不同类别对应的价格分类标签
-        autopct='%.1f%%',  #数据标注格式，保留一位小数
+        autopct='%.1f%%',  #保留一位小数
         labeldistance=1.245,  #标签标注位置与数据块径向距离的比率为1.24
         pctdistance=1.125)  #数据标注位置与数据块径向距离的比率为1.125
 plt.show()
@@ -188,7 +182,6 @@ plt.show()
 # =========================
 # 第12页：热销商品分析
 # =========================
-
 # 统计销量top10商品情况，展示商品名称、价格、品类、销售量
 top10 = df.sort_values(by='sale_count', ascending=False)[
     ['product_title', 'price', 'type', 'sale_count']
@@ -200,7 +193,6 @@ print(top10)
 # =========================
 # 第13页：价格效应分析
 # =========================
-
 # 统计不同价格等级商品的平均销售量，并绘制折线图
 price_sale_mean = df.groupby('price_group')['sale_count'].mean()
 price_sale_mean = price_sale_mean.reindex(['低价商品', '中价商品', '高价商品'])
