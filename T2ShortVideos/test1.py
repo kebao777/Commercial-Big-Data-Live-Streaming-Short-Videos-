@@ -10,9 +10,15 @@ import re
 from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, r2_score
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, Lasso
 from sklearn.tree import DecisionTreeRegressor
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import (
+    RandomForestRegressor,
+    ExtraTreesRegressor,
+    GradientBoostingRegressor,
+    BaggingRegressor,
+)
+from sklearn.svm import SVR
 import xgboost as xgb
 import lightgbm as lgb
 
@@ -21,7 +27,6 @@ warnings.filterwarnings("ignore")
 plt.rcParams["font.sans-serif"] = ["SimHei"]
 plt.rcParams["axes.unicode_minus"] = False
 plt.rcParams["figure.figsize"] = (10, 6)
-
 
 
 # ========================= 1. 数据读取与基础探索 =========================
@@ -40,7 +45,7 @@ def load_and_explore_data(file_path):
     return df
 
 
-# ========================= 2. 特征工程（简化特征，解决区分度不足） =========================
+# ========================= 2. 特征工程（保持原样，不改数据处理方式） =========================
 def feature_engineering(df):
     """特征工程：简化特征维度，避免冗余"""
 
@@ -159,7 +164,7 @@ def feature_engineering(df):
     return df
 
 
-# ========================= 3. 建模数据准备（简化特征维度） =========================
+# ========================= 3. 建模数据准备（保持原样，不改数据处理方式） =========================
 def prepare_model_data(df):
     """准备建模数据：简化特征，避免维度爆炸"""
     # 仅保留核心特征（减少特征数，解决分裂增益问题）
@@ -215,48 +220,52 @@ def prepare_model_data(df):
     )
 
     print(f"建模数据集形状：{model_df.shape}")
-    print(f"最终特征数：{X.shape[1]}个（原23个→现≤15个）")
+    print(f"最终特征数：{X.shape[1]}个")
     print(f"训练集形状：{X_train_final.shape}")
     print(f"测试集形状：{X_test_final.shape}")
     return X_train_final, X_test_final, y_train, y_test, X, numeric_features
 
 
-# ========================= 4. 模型训练与调优（简化网格，解决卡顿） =========================
+# ========================= 4. 模型训练与调优（仅保留指定模型） =========================
 def train_and_tune_models(X_train, X_test, y_train, y_test):
-    """模型训练：简化调优网格，降低计算量"""
-    # 基础模型定义
+    """模型训练：仅保留用户指定模型，并对指定模型做网格搜索调优"""
+
+    # 基础模型：只保留 LinearRegression 和 Lasso
+    # 基础模型：保留 LinearRegression、Lasso，以及 8 个待调优模型的基础版
     base_models = {
         "LinearRegression": LinearRegression(),
-        "DecisionTree": DecisionTreeRegressor(random_state=42, max_depth=3),  # 限制树深度
-        "RandomForest": RandomForestRegressor(n_estimators=50, random_state=42, n_jobs=2, max_depth=5),  # 简化参数
-        "XGBoost": xgb.XGBRegressor(objective="reg:squarederror", random_state=42, n_jobs=2, max_depth=3,
-                                    n_estimators=50),
+        "Lasso": Lasso(alpha=0.001, max_iter=5000),
 
+        "DecisionTree": DecisionTreeRegressor(random_state=42),
+        "RandomForest": RandomForestRegressor(random_state=42, n_jobs=2),
+        "ExtraTrees": ExtraTreesRegressor(random_state=42, n_jobs=2),
+        "GradientBoosting": GradientBoostingRegressor(random_state=42),
+        "Bagging": BaggingRegressor(random_state=42, n_jobs=2),
+        "SVR": SVR(),
+        "XGBoost": xgb.XGBRegressor(
+            objective="reg:squarederror",
+            random_state=42,
+            n_jobs=2
+        ),
         "LightGBM": lgb.LGBMRegressor(
             objective="regression",
             random_state=42,
             n_jobs=2,
-            max_depth=3,
-            n_estimators=30,
-            num_leaves=15,
-            min_split_gain=0.01,  # 新增：最小分裂增益（低于此值不分裂）
-            min_child_weight=0.01,  # 新增：叶子节点最小权重
             verbose=-1
-        )
+        ),
     }
 
-    # 基础模型评估
     def evaluate_base_models(models, X, y):
         results = []
         for name, model in models.items():
-            r2_scores = cross_val_score(model, X, y, scoring="r2", cv=5)  # 简化为3折交叉验证
+            r2_scores = cross_val_score(model, X, y, scoring="r2", cv=5)
             mse_scores = -cross_val_score(model, X, y, scoring="neg_mean_squared_error", cv=5)
             rmse_scores = np.sqrt(mse_scores)
             results.append({
                 "模型": name,
                 "5折R²均值": round(r2_scores.mean(), 4),
                 "5折MSE均值": round(mse_scores.mean(), 4),
-                "5折RMSE均值": round(rmse_scores.mean(), 4)
+                "5折RMSE均值": round(rmse_scores.mean(), 4),
             })
         return pd.DataFrame(results).sort_values("5折R²均值", ascending=False)
 
@@ -266,50 +275,97 @@ def train_and_tune_models(X_train, X_test, y_train, y_test):
     print("=" * 50)
     print(base_results)
 
-    # 简化XGBoost调优（缩小网格）
-    xgb_param_grid = {
-        "max_depth": [3, 5],
-        "learning_rate": [0.05, 0.1],
-        "n_estimators": [50, 100],
-        "subsample": [0.8, 1.0]
+    # 各调优模型参数网格
+    param_grids = {
+        "DecisionTree_Tuned": {
+            "max_depth": [3, 5, 7, None],
+            "min_samples_split": [2, 5, 10],
+            "min_samples_leaf": [1, 3, 5, 10],
+        },
+        "RandomForest_Tuned": {
+            "n_estimators": [80, 120],
+            "max_depth": [5, 8, None],
+            "min_samples_split": [2, 5],
+            "min_samples_leaf": [1, 3, 5],
+        },
+        "ExtraTrees_Tuned": {
+            "n_estimators": [80, 120],
+            "max_depth": [5, 8, None],
+            "min_samples_split": [2, 5],
+            "min_samples_leaf": [1, 3, 5],
+        },
+        "GradientBoosting_Tuned": {
+            "n_estimators": [80, 120],
+            "learning_rate": [0.03, 0.05, 0.1],
+            "max_depth": [2, 3, 4],
+            "subsample": [0.8, 1.0],
+        },
+        "Bagging_Tuned": {
+            "n_estimators": [50, 80, 120],
+            "max_samples": [0.8, 1.0],
+            "max_features": [0.8, 1.0],
+        },
+        "SVR_Tuned": {
+            "kernel": ["rbf"],
+            "C": [1, 10, 30],
+            "epsilon": [0.05, 0.1, 0.2],
+            "gamma": ["scale", "auto"],
+        },
+        "XGBoost_Tuned": {
+            "max_depth": [3, 5],
+            "learning_rate": [0.03, 0.05, 0.1],
+            "n_estimators": [50, 100, 150],
+            "subsample": [0.8, 1.0],
+            "colsample_bytree": [0.8, 1.0],
+        },
+        "LightGBM_Tuned": {
+            "max_depth": [3, 4, 5],
+            "learning_rate": [0.03, 0.05, 0.1],
+            "n_estimators": [50, 80, 120],
+            "num_leaves": [8, 15, 31],
+            "min_child_samples": [15, 30, 50],
+            "subsample": [0.8, 1.0],
+            "reg_alpha": [0.0, 0.1, 0.5],
+            "reg_lambda": [0.0, 0.1, 0.5],
+        },
     }
-    xgb_grid = GridSearchCV(
-        estimator=xgb.XGBRegressor(objective="reg:squarederror", random_state=42, n_jobs=2),
-        param_grid=xgb_param_grid, scoring="r2", cv=5, n_jobs=1, verbose=0  # 单线程调优，避免内存溢出
-    )
-    xgb_grid.fit(X_train, y_train)
-    best_xgb = xgb_grid.best_estimator_
 
-    # 简化LightGBM调优（核心：解决no split gain问题）
-    lgb_param_grid = {
-        "max_depth": [3, 4],
-        "learning_rate": [0.05, 0.1],
-        "n_estimators": [30, 80],  # 减少迭代数，避免无意义分裂
-        "num_leaves": [8, 15],  # 进一步减少叶子数
-        "min_child_samples": [15, 50],  # 提高叶子节点最小样本数
-        "subsample": [0.8, 1.0],
-        "min_split_gain": [0.01, 0.05],  # 新增：限制最小分裂增益
-        "reg_alpha": [0.1, 0.5],  # 新增：L1正则，减少过拟合
-        "reg_lambda": [0.1, 0.5]  # 新增：L2正则，平滑分裂
+    estimators = {
+        "DecisionTree_Tuned": DecisionTreeRegressor(random_state=42),
+        "RandomForest_Tuned": RandomForestRegressor(random_state=42, n_jobs=2),
+        "ExtraTrees_Tuned": ExtraTreesRegressor(random_state=42, n_jobs=2),
+        "GradientBoosting_Tuned": GradientBoostingRegressor(random_state=42),
+        "Bagging_Tuned": BaggingRegressor(random_state=42, n_jobs=2),
+        "SVR_Tuned": SVR(),
+        "XGBoost_Tuned": xgb.XGBRegressor(objective="reg:squarederror", random_state=42, n_jobs=2),
+        "LightGBM_Tuned": lgb.LGBMRegressor(objective="regression", random_state=42, n_jobs=2, verbosity=-1),
     }
-    lgb_grid = GridSearchCV(
-        estimator=lgb.LGBMRegressor(objective="regression", random_state=42, n_jobs=2, verbosity=-1),
-        param_grid=lgb_param_grid, scoring="r2", cv=5, n_jobs=1, verbose=0
-    )
-    lgb_grid.fit(X_train, y_train)
-    best_lgb = lgb_grid.best_estimator_
 
-    # 调优后模型集合
-    tuned_models = {
+    best_models = {}
+    for model_name, estimator in estimators.items():
+        print("\n" + "-" * 50)
+        print(f"正在调优：{model_name}")
+        print("-" * 50)
+        grid = GridSearchCV(
+            estimator=estimator,
+            param_grid=param_grids[model_name],
+            scoring="r2",
+            cv=5,
+            n_jobs=1,
+            verbose=0,
+        )
+        grid.fit(X_train, y_train)
+        best_models[model_name] = grid.best_estimator_
+        print(f"最佳参数：{grid.best_params_}")
+        print(f"最佳CV R²：{grid.best_score_:.4f}")
+
+    # 最终模型集合：基础模型 + 调优模型
+    final_models = {
         "LinearRegression": LinearRegression(),
-        "DecisionTree_Tuned": DecisionTreeRegressor(random_state=42, max_depth=3, min_samples_leaf=10),
-        "RandomForest_Tuned": RandomForestRegressor(random_state=42, max_depth=5, min_samples_leaf=5, n_estimators=50,
-                                                    n_jobs=2),
-        "XGBoost_Tuned": best_xgb,
-        "LightGBM_Tuned": best_lgb
+        "Lasso": Lasso(alpha=0.001, max_iter=5000),
+        **best_models,
     }
 
-    # 最终评估
     def final_evaluate(models, X_train, X_test, y_train, y_test):
         results = []
         for name, model in models.items():
@@ -321,59 +377,58 @@ def train_and_tune_models(X_train, X_test, y_train, y_test):
                 "训练集R²": round(r2_score(y_train, y_train_pred), 4),
                 "测试集R²": round(r2_score(y_test, y_test_pred), 4),
                 "测试集MSE": round(mean_squared_error(y_test, y_test_pred), 4),
-                "测试集RMSE": round(np.sqrt(mean_squared_error(y_test, y_test_pred)), 4)
+                "测试集RMSE": round(np.sqrt(mean_squared_error(y_test, y_test_pred)), 4),
             })
         return pd.DataFrame(results).sort_values("测试集R²", ascending=False)
 
-    final_results = final_evaluate(tuned_models, X_train, X_test, y_train, y_test)
+    final_results = final_evaluate(final_models, X_train, X_test, y_train, y_test)
     print("\n" + "=" * 50)
     print("调优后模型最终评估结果")
     print("=" * 50)
     print(final_results)
 
-    # 输出最优模型
     best_model_name = final_results.iloc[0]["模型"]
-    best_model = tuned_models[best_model_name]
+    best_model = final_models[best_model_name]
     print(f"\n最优模型：{best_model_name}（测试集R²={final_results.iloc[0]['测试集R²']:.4f}）")
-    return best_model, final_results, best_xgb, best_lgb
+
+    return best_model, final_results, best_models["XGBoost_Tuned"], best_models["LightGBM_Tuned"]
 
 
 # ========================= 5. 可视化结果 =========================
 def visualize_results(best_model, final_results, X_test, y_test, X, best_lgb):
     """可视化模型结果"""
     # 5.1 模型性能对比图
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(14, 7))
     models = final_results["模型"]
     test_r2 = final_results["测试集R²"]
-    colors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8"]
 
-    bars = plt.bar(models, test_r2, color=colors, edgecolor="black", alpha=0.8)
+    bars = plt.bar(models, test_r2, edgecolor="black", alpha=0.8)
     for bar, r2 in zip(bars, test_r2):
         height = bar.get_height()
         plt.text(bar.get_x() + bar.get_width() / 2., height + 0.01,
-                 f"{r2:.4f}", ha='center', va='bottom', fontsize=10)
+                 f"{r2:.4f}", ha='center', va='bottom', fontsize=9)
 
     plt.axhline(y=0, color='black', linestyle='-', linewidth=0.8)
     plt.xlabel("模型", fontsize=12)
-    plt.ylabel("测试集R²", fontsize=12)
-    plt.title("各模型测试集R²对比（简化版）", fontsize=14, fontweight="bold")
+    plt.ylabel("测试集R方", fontsize=12)
+    plt.title("各模型测试集R方对比（指定模型版）", fontsize=14, fontweight="bold")
     plt.xticks(rotation=45, ha='right')
     plt.grid(axis='y', alpha=0.3)
     plt.tight_layout()
-    plt.savefig("模型R²对比图.png", dpi=300, bbox_inches='tight')
+    plt.savefig("模型R方对比图.png", dpi=300, bbox_inches='tight')
     plt.show()
 
     # 5.2 最优模型预测对比图
     y_test_pred = best_model.predict(X_test)
     plt.figure(figsize=(10, 6))
-    plt.scatter(y_test, y_test_pred, alpha=0.6, s=30, color="#45B7D1")
+    plt.scatter(y_test, y_test_pred, alpha=0.6, s=30)
     min_val = min(y_test.min(), y_test_pred.min())
     max_val = max(y_test.max(), y_test_pred.max())
     plt.plot([min_val, max_val], [min_val, max_val], "r--", linewidth=2, label="完美预测线")
 
-    plt.xlabel("真实销量（log变换后）", fontsize=12)
-    plt.ylabel("预测销量（log变换后）", fontsize=12)
-    plt.title(f"{best_model.__class__.__name__}模型：真实值vs预测值（R²={r2_score(y_test, y_test_pred):.4f}）",
+    plt.xlabel("真实销量", fontsize=12)
+    plt.ylabel("预测销量", fontsize=12)
+    plt.title(f"{best_model.__class__.__name__}模型：真实值vs预测值（R方={r2_score(y_test, y_test_pred):.4f}）",
               fontsize=14, fontweight="bold")
     plt.legend()
     plt.grid(alpha=0.3)
@@ -385,11 +440,10 @@ def visualize_results(best_model, final_results, X_test, y_test, X, best_lgb):
     feature_importance = pd.DataFrame({
         "特征": X.columns,
         "重要性": best_lgb.feature_importances_
-    }).sort_values("重要性", ascending=False).head(10)  # 简化为Top10
+    }).sort_values("重要性", ascending=False).head(10)
 
     plt.figure(figsize=(12, 8))
-    bars = plt.barh(feature_importance["特征"][::-1], feature_importance["重要性"][::-1], color="#FFA07A",
-                    edgecolor="black")
+    bars = plt.barh(feature_importance["特征"][::-1], feature_importance["重要性"][::-1], edgecolor="black")
     for bar, imp in zip(bars, feature_importance["重要性"][::-1]):
         width = bar.get_width()
         plt.text(width + 0.5, bar.get_y() + bar.get_height() / 2.,
@@ -403,33 +457,20 @@ def visualize_results(best_model, final_results, X_test, y_test, X, best_lgb):
     plt.savefig("特征重要性图.png", dpi=300, bbox_inches='tight')
     plt.show()
 
-    # 输出特征重要性排名
     print("\n" + "=" * 50)
     print("LightGBM模型Top10特征重要性")
     print("=" * 50)
     print(feature_importance.head(10).to_string(index=False))
 
 
-
-# ========================= 7. 主函数 =========================
+# ========================= 6. 主函数 =========================
 def main(file_path):
     """主函数：执行全流程建模"""
-    # 1. 数据读取与探索
     df = load_and_explore_data(file_path)
-
-    # 2. 特征工程
     df = feature_engineering(df)
-
-    # 3. 建模数据准备
     X_train_final, X_test_final, y_train, y_test, X, numeric_features = prepare_model_data(df)
-
-    # 4. 模型训练与调优
     best_model, final_results, best_xgb, best_lgb = train_and_tune_models(X_train_final, X_test_final, y_train, y_test)
-
-    # 5. 可视化结果
     visualize_results(best_model, final_results, X_test_final, y_test, X, best_lgb)
-
-
 
     print("\n" + "=" * 50)
     print("建模流程全部完成！生成文件：")
@@ -441,8 +482,5 @@ def main(file_path):
 
 # ========================= 运行入口 =========================
 if __name__ == "__main__":
-    # 请修改为你的数据文件路径
-    DATA_FILE_PATH = "短视频营销数据.xlsx"  # 或完整路径如"D:/数据/短视频营销数据.xlsx"
-
-    # 执行全流程建模
+    DATA_FILE_PATH = "短视频营销数据.xlsx"
     main(DATA_FILE_PATH)
