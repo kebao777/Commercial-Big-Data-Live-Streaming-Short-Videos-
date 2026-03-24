@@ -158,35 +158,8 @@ plt.pie(
 plt.title('流失用户在不同婚姻状况中的分布')
 plt.show()
 
-# -------------------------
-# 2.5 城市级别下流失率柱状图
-# -------------------------
-plt.figure(figsize=(8, 5))
-plt.bar(citytier_summary['CityTier'].astype(str), citytier_summary['流失率'], edgecolor='gray')
-plt.xlabel('城市级别')
-plt.ylabel('流失率')
-plt.title('不同城市级别下的用户流失率')
-
-for i, v in enumerate(citytier_summary['流失率']):
-    plt.text(i, v, f'{v:.2%}', ha='center', va='bottom')
-
-plt.show()
-
-# -------------------------
-# 2.6 婚姻状况下流失率柱状图
-# -------------------------
-plt.figure(figsize=(8, 5))
-plt.bar(marital_summary['MaritalStatus'].astype(str), marital_summary['流失率'], edgecolor='gray')
-plt.xlabel('婚姻状况')
-plt.ylabel('流失率')
-plt.title('不同婚姻状况下的用户流失率')
-
-for i, v in enumerate(marital_summary['流失率']):
-    plt.text(i, v, f'{v:.2%}', ha='center', va='bottom')
-
-plt.show()
 # =========================
-# 2.7 更合理的 boxplot：不同城市级别下“各婚姻状况流失率”的分布
+# 2.7 boxplot：不同城市级别下“各婚姻状况流失率”的分布
 # =========================
 
 # 先按 城市级别 + 婚姻状况 分组，计算每个交叉组的流失率
@@ -205,15 +178,22 @@ for city in citytier_labels:
     citytier_box_data.append(rates)
 
 plt.figure(figsize=(8, 5))
-plt.boxplot(citytier_box_data, labels=citytier_labels)
+bp = plt.boxplot(citytier_box_data, tick_labels=citytier_labels)
 plt.title('不同城市级别下流失率分布（按婚姻状况细分）')
 plt.xlabel('城市级别')
 plt.ylabel('流失率')
+
+
+# 标注每个组内的具体数值
+for i, rates in enumerate(citytier_box_data, start=1):
+    for j, y in enumerate(rates):
+        plt.text(i + 0.08, y, f'{y:.3f}', fontsize=9, color='blue', va='center')
+
 plt.show()
 
 
 # =========================
-# 2.8 更合理的 boxplot：不同婚姻状况下“各城市级别流失率”的分布
+# 2.8 boxplot：不同婚姻状况下“各城市级别流失率”的分布
 # =========================
 
 marital_labels = list(cross_rate['MaritalStatus'].unique())
@@ -224,12 +204,17 @@ for status in marital_labels:
     marital_box_data.append(rates)
 
 plt.figure(figsize=(8, 5))
-plt.boxplot(marital_box_data, labels=marital_labels)
+bp = plt.boxplot(marital_box_data, tick_labels=marital_labels)
 plt.title('不同婚姻状况下流失率分布（按城市级别细分）')
 plt.xlabel('婚姻状况')
 plt.ylabel('流失率')
-plt.show()
 
+# 标注每个组内的具体数值
+for i, rates in enumerate(marital_box_data, start=1):
+    for j, y in enumerate(rates):
+        plt.text(i + 0.08, y, f'{y:.3f}', fontsize=9, color='blue', va='center')
+
+plt.show()
 
 # =========================
 # 不同婚姻状况下流失用户与未流失用户占比（堆叠柱状图）
