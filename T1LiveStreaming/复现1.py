@@ -64,7 +64,6 @@ plt.show()
 
 
 # 分析用户在首选登录设备不同情况下的流失情况（堆积柱状图）
-
 # 提取不同首选登录设备的用户
 df_MobilePhone = df.loc[df['PreferredLoginDevice'] == 'Mobile Phone']   # 首选移动手机
 df_Phone = df.loc[df['PreferredLoginDevice'] == 'Phone']                # 首选普通电话
@@ -171,7 +170,6 @@ plt.show()
 # =========================
 # 10. 用户属性特征分析——性别分析（饼图）
 # =========================
-
 # 分析流失用户的性别分布
 df_churn1 = df.loc[df['Churn'] == 1]
 df_churn1_Gender = (
@@ -351,7 +349,6 @@ plt.show()
 # =========================
 # 13. 用户属性特征分析——年龄分析（堆积柱状图）
 # =========================
-
 age_order = [1, 2, 3, 4, 5, 6]
 age_labels = [age_map[i] for i in age_order]
 
@@ -414,7 +411,6 @@ plt.show()
 # =========================
 # 14. 输出各年龄组流失率，便于写PPT结论
 # =========================
-
 age_churn_summary = pd.DataFrame({
     '年龄段': age_labels,
     '流失人数': y1,
@@ -428,7 +424,6 @@ print(age_churn_summary)
 # =========================
 # 15. 用户行为特征分析——计算整体流失率
 # =========================
-
 churn_count = (df['Churn'] == 1).sum()
 total_count = len(df)
 churn_rate = churn_count / total_count
@@ -440,7 +435,6 @@ print('用户流失率：{:.2%}'.format(churn_rate))
 # =========================
 # 16. 用户行为特征分析——最近一个月订单偏好类型分析（饼图）
 # =========================
-
 # 流失用户订单偏好
 df_churn1_OrderCat = (
     df_churn1.groupby('PreferedOrderCat')['CustomerID']
@@ -484,7 +478,6 @@ plt.show()
 # =========================
 # 17. 用户行为特征分析——最近一个月订单偏好类型分析（堆积柱状图）
 # =========================
-
 order_cat_labels = sorted(df['PreferedOrderCat'].dropna().unique())
 
 # 统计每类订单偏好下流失与未流失人数
@@ -543,9 +536,8 @@ ax.set_title('不同订单偏好类型下用户流失情况')
 plt.show()
 
 # =========================
-# 18. 输出各订单偏好类别流失率，便于写PPT结论
+# 18. 输出各订单偏好类别流失率
 # =========================
-
 order_cat_summary = pd.DataFrame({
     '订单偏好类型': order_cat_labels,
     '流失人数': y1,
@@ -595,15 +587,13 @@ print(y.value_counts())
 # =========================
 # 逻辑回归
 # =========================
-
 # 标准化特征
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
 # =========================
-# 第24页：数据准备、训练集测试集划分、模型训练
+# 数据准备、训练集测试集划分、模型训练
 # =========================
-
 # 拆分训练集和测试集
 # test_size=0.2 表示 80%训练，20%测试
 # stratify=y 保持正负样本比例一致
@@ -621,9 +611,9 @@ print("测试集形状：", X_test.shape)
 # 构建逻辑回归模型
 # class_weight='balanced' 用于缓解类别不平衡问题
 lr_model = LogisticRegression(
-    random_state=42,
+    random_state=0,
     max_iter=1000,
-    class_weight='balanced'
+    solver='lbfgs'
 )
 
 # 模型训练
@@ -633,15 +623,11 @@ lr_model.fit(X_train, y_train)
 y_pred = lr_model.predict(X_test)
 y_prob = lr_model.predict_proba(X_test)[:, 1]
 
-# =========================
-# 结果评估与模型表现
-# =========================
-
 # 计算评价指标
 acc = accuracy_score(y_test, y_pred)
 precision = precision_score(y_test, y_pred, zero_division=0)
 recall = recall_score(y_test, y_pred, zero_division=0)
-f1 = f1_score(y_test, y_pred, zero_division=0)
+f1 = f1_score(y_test, y_pred, average='micro')
 
 print("\n========== 逻辑回归模型评价指标 ==========")
 print("Accuracy（准确率）: {:.4f}".format(acc))
@@ -655,7 +641,6 @@ print(classification_report(y_test, y_pred, digits=4, zero_division=0))
 # =========================
 # 混淆矩阵
 # =========================
-
 cm = confusion_matrix(y_test, y_pred)
 tn, fp, fn, tp = cm.ravel()
 
@@ -676,7 +661,6 @@ plt.show()
 # =========================
 # 模型回归系数
 # =========================
-
 coef_df = pd.DataFrame({
     '特征': feature_cols,
     '回归系数': lr_model.coef_[0]
@@ -701,7 +685,6 @@ plt.show()
 # =========================
 # 输出每个用户的流失概率
 # =========================
-
 pred_result = pd.DataFrame({
     '真实值': y_test.values,
     '预测值': y_pred,
