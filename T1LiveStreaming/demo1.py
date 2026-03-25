@@ -159,6 +159,117 @@ plt.title('流失用户在不同婚姻状况中的分布')
 plt.show()
 
 # =========================
+# 2.5不同城市级别下流失用户与未流失用户占比（堆叠柱状图）
+# =========================
+
+# 获取城市级别标签，按数值升序排序
+city_labels = sorted(df['CityTier'].dropna().unique())
+
+# 统计各城市级别下流失与未流失人数
+y1 = [list(df.loc[df['CityTier'] == city, 'Churn']).count(1) for city in city_labels]  # 流失
+y2 = [list(df.loc[df['CityTier'] == city, 'Churn']).count(0) for city in city_labels]  # 未流失
+
+data = np.array([y1, y2])
+x = np.arange(len(city_labels))
+bottom_y = np.zeros(len(city_labels))
+sums = np.sum(data, axis=0)
+
+colors = ['#8da0cb', '#a6d854']
+legend_labels = ['流失用户占比', '未流失用户占比']
+
+figure, ax = plt.subplots(figsize=(10, 6))
+
+for j, i in enumerate(data):
+    y = i / sums
+    ax.bar(x,y,width=0.6,color=colors[j],bottom=bottom_y,edgecolor='gray')
+    bottom_y += y
+
+ax.set_xticks(x)
+ax.set_xticklabels(city_labels)
+ax.yaxis.set_major_formatter(PercentFormatter(1))
+
+patches = [
+    mpatches.Patch(color=colors[h], label=legend_labels[h])
+    for h in range(len(legend_labels))
+]
+ax.legend(handles=patches, ncol=1, bbox_to_anchor=(1, 1))
+figure.subplots_adjust(right=0.8)
+
+# 计算各城市级别下流失率和未流失率
+Y_churn1 = []
+Y_churn0 = []
+
+for city in city_labels:
+    df_city = df.loc[df['CityTier'] == city]
+    Y_churn1.append(list(df_city['Churn']).count(1) / len(df_city))
+    Y_churn0.append(list(df_city['Churn']).count(0) / len(df_city))
+
+# 在柱子中间显示百分比
+for a, b1, b0 in zip(x, Y_churn1, Y_churn0):
+    ax.text(a, b1 / 2, '%.2f%%' % (b1 * 100), ha='center', va='center')
+    ax.text(a, b1 + b0 / 2, '%.2f%%' % (b0 * 100), ha='center', va='center')
+
+ax.set_ylabel('流失用户与未流失用户占比', fontsize=13)
+ax.set_xlabel('城市级别', fontsize=13)
+ax.set_title('不同城市级别下用户流失情况')
+plt.show()
+# =========================
+# 2.6不同婚姻状况下流失用户与未流失用户占比（堆叠柱状图）
+# =========================
+
+# 获取婚姻状况标签，按字母顺序排序
+marital_labels = sorted(df['MaritalStatus'].dropna().unique())
+
+# 统计各婚姻状况下流失与未流失人数
+y1 = [list(df.loc[df['MaritalStatus'] == status, 'Churn']).count(1) for status in marital_labels]  # 流失
+y2 = [list(df.loc[df['MaritalStatus'] == status, 'Churn']).count(0) for status in marital_labels]  # 未流失
+
+data = np.array([y1, y2])
+x = np.arange(len(marital_labels))
+bottom_y = np.zeros(len(marital_labels))
+sums = np.sum(data, axis=0)
+
+colors = ['#fc8d62', '#66c2a5']
+legend_labels = ['流失用户占比', '未流失用户占比']
+
+figure, ax = plt.subplots(figsize=(10, 6))
+
+for j, i in enumerate(data):
+    y = i / sums
+    ax.bar(x,y,width=0.6,color=colors[j],bottom=bottom_y,edgecolor='gray')
+    bottom_y += y
+
+ax.set_xticks(x)
+ax.set_xticklabels(marital_labels)
+ax.yaxis.set_major_formatter(PercentFormatter(1))
+
+patches = [
+    mpatches.Patch(color=colors[h], label=legend_labels[h])
+    for h in range(len(legend_labels))
+]
+ax.legend(handles=patches, ncol=1, bbox_to_anchor=(1, 1))
+figure.subplots_adjust(right=0.8)
+
+# 计算各婚姻状况下流失率和未流失率
+Y_churn1 = []
+Y_churn0 = []
+
+for status in marital_labels:
+    df_status = df.loc[df['MaritalStatus'] == status]
+    Y_churn1.append(list(df_status['Churn']).count(1) / len(df_status))
+    Y_churn0.append(list(df_status['Churn']).count(0) / len(df_status))
+
+# 在柱子中间显示百分比
+for a, b1, b0 in zip(x, Y_churn1, Y_churn0):
+    ax.text(a, b1 / 2, '%.2f%%' % (b1 * 100), ha='center', va='center')
+    ax.text(a, b1 + b0 / 2, '%.2f%%' % (b0 * 100), ha='center', va='center')
+
+ax.set_ylabel('流失用户与未流失用户占比', fontsize=13)
+ax.set_xlabel('婚姻状况', fontsize=13)
+ax.set_title('不同婚姻状况下用户流失情况')
+plt.show()
+
+# =========================
 # 2.7 boxplot：不同城市级别下“各婚姻状况流失率”的分布
 # =========================
 
@@ -217,132 +328,6 @@ for i, rates in enumerate(marital_box_data, start=1):
 plt.show()
 
 # =========================
-# 不同婚姻状况下流失用户与未流失用户占比（堆叠柱状图）
-# =========================
-
-# 获取婚姻状况标签，按字母顺序排序
-marital_labels = sorted(df['MaritalStatus'].dropna().unique())
-
-# 统计各婚姻状况下流失与未流失人数
-y1 = [list(df.loc[df['MaritalStatus'] == status, 'Churn']).count(1) for status in marital_labels]  # 流失
-y2 = [list(df.loc[df['MaritalStatus'] == status, 'Churn']).count(0) for status in marital_labels]  # 未流失
-
-data = np.array([y1, y2])
-x = np.arange(len(marital_labels))
-bottom_y = np.zeros(len(marital_labels))
-sums = np.sum(data, axis=0)
-
-colors = ['#fc8d62', '#66c2a5']
-legend_labels = ['流失用户占比', '未流失用户占比']
-
-figure, ax = plt.subplots(figsize=(10, 6))
-
-for j, i in enumerate(data):
-    y = i / sums
-    ax.bar(
-        x,
-        y,
-        width=0.6,
-        color=colors[j],
-        bottom=bottom_y,
-        edgecolor='gray'
-    )
-    bottom_y += y
-
-ax.set_xticks(x)
-ax.set_xticklabels(marital_labels)
-ax.yaxis.set_major_formatter(PercentFormatter(1))
-
-patches = [
-    mpatches.Patch(color=colors[h], label=legend_labels[h])
-    for h in range(len(legend_labels))
-]
-ax.legend(handles=patches, ncol=1, bbox_to_anchor=(1, 1))
-figure.subplots_adjust(right=0.8)
-
-# 计算各婚姻状况下流失率和未流失率
-Y_churn1 = []
-Y_churn0 = []
-
-for status in marital_labels:
-    df_status = df.loc[df['MaritalStatus'] == status]
-    Y_churn1.append(list(df_status['Churn']).count(1) / len(df_status))
-    Y_churn0.append(list(df_status['Churn']).count(0) / len(df_status))
-
-# 在柱子中间显示百分比
-for a, b1, b0 in zip(x, Y_churn1, Y_churn0):
-    ax.text(a, b1 / 2, '%.2f%%' % (b1 * 100), ha='center', va='center')
-    ax.text(a, b1 + b0 / 2, '%.2f%%' % (b0 * 100), ha='center', va='center')
-
-ax.set_ylabel('流失用户与未流失用户占比', fontsize=13)
-ax.set_xlabel('婚姻状况', fontsize=13)
-ax.set_title('不同婚姻状况下用户流失情况')
-plt.show()
-
-
-# =========================
-# 不同城市级别下流失用户与未流失用户占比（堆叠柱状图）
-# =========================
-
-# 获取城市级别标签，按数值升序排序
-city_labels = sorted(df['CityTier'].dropna().unique())
-
-# 统计各城市级别下流失与未流失人数
-y1 = [list(df.loc[df['CityTier'] == city, 'Churn']).count(1) for city in city_labels]  # 流失
-y2 = [list(df.loc[df['CityTier'] == city, 'Churn']).count(0) for city in city_labels]  # 未流失
-
-data = np.array([y1, y2])
-x = np.arange(len(city_labels))
-bottom_y = np.zeros(len(city_labels))
-sums = np.sum(data, axis=0)
-
-colors = ['#8da0cb', '#a6d854']
-legend_labels = ['流失用户占比', '未流失用户占比']
-
-figure, ax = plt.subplots(figsize=(10, 6))
-
-for j, i in enumerate(data):
-    y = i / sums
-    ax.bar(
-        x,
-        y,
-        width=0.6,
-        color=colors[j],
-        bottom=bottom_y,
-        edgecolor='gray'
-    )
-    bottom_y += y
-
-ax.set_xticks(x)
-ax.set_xticklabels(city_labels)
-ax.yaxis.set_major_formatter(PercentFormatter(1))
-
-patches = [
-    mpatches.Patch(color=colors[h], label=legend_labels[h])
-    for h in range(len(legend_labels))
-]
-ax.legend(handles=patches, ncol=1, bbox_to_anchor=(1, 1))
-figure.subplots_adjust(right=0.8)
-
-# 计算各城市级别下流失率和未流失率
-Y_churn1 = []
-Y_churn0 = []
-
-for city in city_labels:
-    df_city = df.loc[df['CityTier'] == city]
-    Y_churn1.append(list(df_city['Churn']).count(1) / len(df_city))
-    Y_churn0.append(list(df_city['Churn']).count(0) / len(df_city))
-
-# 在柱子中间显示百分比
-for a, b1, b0 in zip(x, Y_churn1, Y_churn0):
-    ax.text(a, b1 / 2, '%.2f%%' % (b1 * 100), ha='center', va='center')
-    ax.text(a, b1 + b0 / 2, '%.2f%%' % (b0 * 100), ha='center', va='center')
-
-ax.set_ylabel('流失用户与未流失用户占比', fontsize=13)
-ax.set_xlabel('城市级别', fontsize=13)
-ax.set_title('不同城市级别下用户流失情况')
-plt.show()
-# =========================
 # 3. 关联分析：逻辑回归
 # =========================
 
@@ -373,9 +358,9 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 # 建立逻辑回归模型
 lr_model = LogisticRegression(
-    random_state=42,
+    random_state=0,
     max_iter=1000,
-    class_weight='balanced'
+    class_weight='balanced' #数据存在类别不平衡（流失用户较少）
 )
 
 # 训练模型
@@ -434,10 +419,10 @@ plt.xticks(rotation=20)
 plt.show()
 
 # =========================
-# 4. 输出结论辅助写PPT
+# 4. 输出结论辅助
 # =========================
 
-print("\n========== 四、结论辅助输出 ==========")
+print("\n========== 四、结论输出 ==========")
 
 max_city = citytier_summary.sort_values(by='流失率', ascending=False).iloc[0]
 max_marital = marital_summary.sort_values(by='流失率', ascending=False).iloc[0]

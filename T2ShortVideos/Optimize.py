@@ -93,7 +93,7 @@ def feature_engineering(df):
         right=False
     )
 
-    # 2.2 发布时间特征处理（简化）
+    # 2.2 发布时间特征处理
     def parse_time(time_str):
         try:
             if pd.isna(time_str):
@@ -114,7 +114,7 @@ def feature_engineering(df):
     )
     df["is_workday"] = df["publish_datetime"].dt.weekday.apply(lambda x: 1 if x < 5 else 0).fillna(1)
 
-    # 2.3 GPM特征优化（简化，减少异常值）
+    # 2.3 GPM特征优化
     def handle_outliers(data, col):
         q1 = data[col].quantile(0.05)
         q3 = data[col].quantile(0.95)
@@ -133,18 +133,17 @@ def feature_engineering(df):
     )
     df["GPM_price_interact"] = df["GPM_clean"] * df["price"]
 
-    # 2.4 核心衍生特征（仅保留高价值特征）
+    # 2.4 核心衍生特征
     df["like_fan_ratio"] = df["likes"] / (df["fans_count"] + 1)
     df["product_title_length"] = df["product_title"].apply(lambda x: len(str(x)) if pd.notna(x) else 0)
 
-    # 2.5 商品品类特征优化（简化品类）
+    # 2.5 商品品类特征
     df["product_title_clean"] = df["product_title"].astype(str).str.strip()
     stop_words = {"的", "了", "是", "在", "有", "和", "及", "等", "与", "或", "一个", "一款"}
     df["product_keywords"] = df["product_title_clean"].apply(
         lambda x: [word for word in jieba.cut(x) if word.strip() and word not in stop_words]
     )
 
-    # 简化品类词典（减少品类数）
     category_dict = {
         "美妆": ["美妆", "化妆", "彩妆", "美容", "眉笔", "腮红", "眼影", "粉底液", "修容", "遮瑕", "口红", "睫毛",
                  "粉扑", "定妆", "面霜", "颈霜", "素颜霜", "卸妆"],
@@ -182,7 +181,7 @@ def feature_engineering(df):
     return df
 
 
-# ========================= 3. 建模数据准备（保持原样，不改数据处理方式） =========================
+# ========================= 3. 建模数据准备=========================
 def prepare_model_data(df):
     """准备建模数据：简化特征，避免维度爆炸"""
     # 仅保留核心特征（减少特征数，解决分裂增益问题）
@@ -207,7 +206,7 @@ def prepare_model_data(df):
     feature_cols = [col if col not in log_features else f"{col}_log" for col in feature_cols]
     target_col_log = f"{target_col}_log"
 
-    # 分类特征编码（简化编码）
+    # 分类特征编码
     categorical_features = ["product_category", "duration_segment", "publish_hour_segment", "GPM_level"]
     encoded_cats = pd.get_dummies(model_df[categorical_features], prefix=categorical_features, drop_first=True)
 
@@ -217,7 +216,7 @@ def prepare_model_data(df):
     X = pd.concat([X_numeric, encoded_cats], axis=1)
     y = model_df[target_col_log]
 
-    # 数据划分（分层抽样，简化）
+    # 数据划分
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42
     )
@@ -422,7 +421,7 @@ def visualize_results(best_model, final_results, X_test, y_test, X):
     plt.axhline(y=0, color='black', linestyle='-', linewidth=0.8)
     plt.xlabel("模型", fontsize=12)
     plt.ylabel("测试集R方", fontsize=12)
-    plt.title("各模型测试集R方对比（指定模型版）", fontsize=14, fontweight="bold")
+    plt.title("各模型测试集R方对比", fontsize=14, fontweight="bold")
     plt.xticks(rotation=45, ha='right')
     plt.grid(axis='y', alpha=0.3)
     plt.tight_layout()

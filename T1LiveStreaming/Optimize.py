@@ -22,9 +22,6 @@ from sklearn.metrics import (
     confusion_matrix, ConfusionMatrixDisplay, classification_report
 )
 
-# =========================
-# 0. 基本设置
-# =========================
 plt.rcParams['font.sans-serif'] = ['SimHei']
 plt.rcParams['axes.unicode_minus'] = False
 
@@ -47,9 +44,11 @@ print(df.info())
 # =========================
 target_col = "Churn"
 
-# 预测任务建议用更多特征，不只用城市级别、婚姻状况
+#  使用更多特征，不只用城市级别、婚姻状况
 drop_cols = ["CustomerID", target_col]
 feature_cols = [col for col in df.columns if col not in drop_cols]
+
+#feature_cols = ['CityTier', 'MaritalStatus']
 
 X = df[feature_cols].copy()
 y = df[target_col].copy()
@@ -94,18 +93,19 @@ numeric_transformer_tree = Pipeline(steps=[
     ("imputer", SimpleImputer(strategy="median"))
 ])
 
+#类别变量
 categorical_transformer = Pipeline(steps=[
     ("imputer", SimpleImputer(strategy="most_frequent")),
     ("onehot", OneHotEncoder(handle_unknown="ignore"))
 ])
-
+#线性预处理器
 preprocessor_linear = ColumnTransformer(
     transformers=[
         ("num", numeric_transformer_linear, numeric_cols),
         ("cat", categorical_transformer, categorical_cols)
     ]
 )
-
+#树模型预处理器
 preprocessor_tree = ColumnTransformer(
     transformers=[
         ("num", numeric_transformer_tree, numeric_cols),
@@ -326,7 +326,7 @@ plt.title(f"{best_model_name} 最优模型混淆矩阵")
 plt.show()
 
 # =========================
-# 13. 特征重要性（树模型）或系数（逻辑回归）
+# 13. 特征重要性（树模型）
 # =========================
 model_obj = final_model.named_steps["model"]
 preprocessor_obj = final_model.named_steps["preprocessor"]
@@ -343,7 +343,7 @@ if hasattr(model_obj, "feature_importances_"):
     print("\n========== 特征重要性 Top 20 ==========")
     print(importance_df.head(20))
 
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(14, 8))
     top_n = 15
     top_df = importance_df.head(top_n).iloc[::-1]
     plt.barh(top_df["特征"], top_df["重要性"], edgecolor="gray")
@@ -351,32 +351,80 @@ if hasattr(model_obj, "feature_importances_"):
     plt.xlabel("重要性")
     plt.show()
 
-elif hasattr(model_obj, "coef_"):
-    coef_df = pd.DataFrame({
-        "特征": feature_names,
-        "系数": model_obj.coef_[0]
-    }).sort_values(by="系数", ascending=False)
+# =========================
+#PDP
+# =========================
+if best_model_name == "RandomForest":
+    # =========================
+    # PDP：CityTier
+    # 思路：把测试集中的 CityTier 固定为某个值，其他变量保持原样，
+    # 再计算平均预测流失概率。这就是部分依赖的思想。
+    # =========================
+    print("\n========== RandomForest: PDP（部分依赖） ==========")
 
-    print("\n========== 回归系数 Top 20 ==========")
-    print(coef_df.head(20))
+    # -------- 1）CityTier 的 PDP 数据 --------
+    city_values = sorted(X_test["CityTier"].dropna().unique())
+    city_pdp = []
 
-    plt.figure(figsize=(10, 6))
-    top_n = 15
-    top_df = coef_df.head(top_n).iloc[::-1]
-    plt.barh(top_df["特征"], top_df["系数"], edgecolor="gray")
-    plt.title(f"{best_model_name} 回归系数 Top {top_n}")
-    plt.xlabel("系数")
+    for city in city_values:
+        X_temp = X_test.copy()
+        X_temp["CityTier"] = city
+        avg_prob = final_model.predict_proba(X_temp)[:, 1].mean()  # 计算平均预测流失概率
+        city_pdp.append(avg_prob)
+
+    city_pdp_df = pd.DataFrame({
+        "CityTier": city_values,
+        "平均预测流失概率": city_pdp
+    })
+
+    print("\nCityTier PDP 数据：")
+    print(city_pdp_df)
+
+    # -------- 2）MaritalStatus 的 PDP 数据 --------
+    marital_values = list(X_test["MaritalStatus"].dropna().unique())
+    marital_pdp = []
+
+    for status in marital_values:
+        X_temp = X_test.copy()
+        X_temp["MaritalStatus"] = status
+        avg_prob = final_model.predict_proba(X_temp)[:, 1].mean()  # 计算平均预测流失概率
+        marital_pdp.append(avg_prob)
+
+    marital_pdp_df = pd.DataFrame({
+        "MaritalStatus": marital_values,
+        "平均预测流失概率": marital_pdp
+    })
+
+    print("\nMaritalStatus PDP 数据：")
+    print(marital_pdp_df)
+
+    fig, ax = plt.subplots(1, 2, figsize=(14, 5))
+
+    # --- CityTier PDP（折线图）---
+    ax[0].plot(
+        city_pdp_df["CityTier"],
+        city_pdp_df["平均预测流失概率"],
+        marker="o"
+    )
+    ax[0].set_title("RandomForest：CityTier 的部分依赖图（PDP）")
+    ax[0].set_xlabel("城市级别")
+    ax[0].set_ylabel("平均预测流失概率")
+
+    for x, y in zip(city_pdp_df["CityTier"], city_pdp_df["平均预测流失概率"]):
+        ax[0].text(x, y, f"{y:.4f}", ha="center", va="bottom")
+
+    # --- MaritalStatus PDP（柱状图）---
+    ax[1].bar(
+        marital_pdp_df["MaritalStatus"],
+        marital_pdp_df["平均预测流失概率"],
+        edgecolor="gray"
+    )
+    ax[1].set_title("RandomForest：MaritalStatus 的部分依赖图（PDP）")
+    ax[1].set_xlabel("婚姻状况")
+    ax[1].set_ylabel("平均预测流失概率")
+
+    for i, v in enumerate(marital_pdp_df["平均预测流失概率"]):
+        ax[1].text(i, v, f"{v:.4f}", ha="center", va="bottom")
+
+    plt.tight_layout()
     plt.show()
-
-# =========================
-# 14. 输出预测概率最高的高风险用户
-# =========================
-result_df = X_test.copy()
-result_df["真实值"] = y_test.values
-result_df["预测值"] = y_pred_final
-result_df["流失概率"] = y_prob_final
-
-result_df = result_df.sort_values(by="流失概率", ascending=False)
-
-print("\n========== 高风险用户前10个 ==========")
-print(result_df.head(10))
