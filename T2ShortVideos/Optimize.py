@@ -46,7 +46,6 @@ def load_and_explore_data(file_path):
 
 # ========================= 2. 特征工程（保持原样，不改数据处理方式） =========================
 def feature_engineering(df):
-    """特征工程：简化特征维度，避免冗余"""
 
     # 2.1 视频时长特征处理（兼容 1m23s / 49s / 01:23 / 83 等格式 → 总秒数）
     def convert_duration_to_seconds(duration_str):
@@ -192,12 +191,12 @@ def prepare_model_data(df):
     ]
     target_col = "sale_count"
 
-    # 数据清洗（更严格的过滤，保证数据质量）
+    # 数据清洗
     model_df = df[feature_cols + [target_col]].copy()
     model_df = model_df[(model_df[target_col] > 0) & (model_df[target_col] < model_df[target_col].quantile(0.99))]
     model_df = model_df.dropna()
 
-    # 对数变换（仅对核心数值特征）
+    # 对数变换
     log_features = ["fans_count", "likes", "price", "duration_seconds", "GPM_clean", target_col]
     for col in log_features:
         model_df[f"{col}_log"] = np.log1p(model_df[col])

@@ -82,13 +82,13 @@ print("测试集形状：", X_test.shape)
 # =========================
 # 5. 预处理器
 # =========================
-# 给线性模型用：数值特征要标准化
+# 线性模型
 numeric_transformer_linear = Pipeline(steps=[
     ("imputer", SimpleImputer(strategy="median")),
     ("scaler", StandardScaler())
 ])
 
-# 给树模型用：一般不需要标准化
+# 树模型
 numeric_transformer_tree = Pipeline(steps=[
     ("imputer", SimpleImputer(strategy="median"))
 ])
@@ -268,7 +268,6 @@ elif best_model_name == "LogisticRegression":
         "model__solver": ["lbfgs", "liblinear"]
     }
 else:
-    # 其他模型如果被选为最优，给一个通用参数网格
     param_grid = {}
 
 if len(param_grid) > 0:
@@ -326,7 +325,7 @@ plt.title(f"{best_model_name} 最优模型混淆矩阵")
 plt.show()
 
 # =========================
-# 13. 特征重要性（树模型）
+# 13. 特征重要性
 # =========================
 model_obj = final_model.named_steps["model"]
 preprocessor_obj = final_model.named_steps["preprocessor"]
@@ -352,7 +351,7 @@ if hasattr(model_obj, "feature_importances_"):
     plt.show()
 
 # =========================
-#PDP
+# PDP
 # =========================
 if best_model_name == "RandomForest":
     # =========================
